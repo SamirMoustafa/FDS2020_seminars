@@ -1,6 +1,12 @@
 import os
 import warnings
 
+import pandas as pd
+
+from src import DataDownloader, PATH_WARNING, DataExtractor
+
+NO_FILES_EXCEPTION = 'can\'t find any files in the provided path %s'
+
 
 def director_handler(path, warning_str=None, exception_str=None):
     if warning_str and exception_str:
@@ -19,7 +25,23 @@ def director_handler(path, warning_str=None, exception_str=None):
     return True
 
 
-def instances_from_df_to_json(df, json_name, num_of_instances):
-    instances = df.iloc[:num_of_instances]
-    instances.to_json(json_name, orient='records', lines=True)
+def get_files_path(path):
+    files_name_list = os.listdir(path)
+    if not files_name_list:
+        raise ValueError(NO_FILES_EXCEPTION % path)
+    return [os.path.join(path, file_name) for file_name in files_name_list]
+
+
+def read_ith_rows(df_path, num_of_instances):
+    return pd.read_csv(df_path).head(num_of_instances)
+
+def download_and_extract(data_dir, url, tar_path):
+    director_handler(data_dir, warning_str=PATH_WARNING)
+
+    data_downloader = DataDownloader(url)
+    data_downloader.download_in(tar_path)
+
+    data_extractor = DataExtractor(tar_path)
+    data_extractor.unzip_to(data_dir)
+
     return True
