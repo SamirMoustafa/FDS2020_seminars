@@ -35,6 +35,7 @@ def get_files_path(path):
 def read_ith_rows(df_path, num_of_instances):
     return pd.read_csv(df_path).head(num_of_instances)
 
+
 def download_and_extract(data_dir, url, tar_path):
     director_handler(data_dir, warning_str=PATH_WARNING)
 
@@ -45,3 +46,9 @@ def download_and_extract(data_dir, url, tar_path):
     data_extractor.unzip_to(data_dir)
 
     return True
+
+
+def handle_data_path(path, url):
+    TAR_PATH = os.path.join(path, url.split('/')[-1])
+    CSV_PATH = TAR_PATH.split('.')[0]
+    return TAR_PATH, CSV_PATH
