@@ -1,7 +1,5 @@
-import os
-
-import urllib.request
 import tarfile
+import urllib.request
 
 PATH_WARNING = 'can\'t find the folder `%s`, the code will initialize it.'
 PATH_EXCEPTION = 'can\'t find the zip file `%s`.'
