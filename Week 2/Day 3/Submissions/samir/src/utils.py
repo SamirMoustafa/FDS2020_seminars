@@ -1,3 +1,4 @@
+import csv
 import os
 import time
 import warnings
@@ -21,6 +22,7 @@ from sklearn.model_selection import train_test_split as train_test_split_normal
 from src import DataDownloader, PATH_WARNING, DataExtractor
 
 NO_FILES_EXCEPTION = 'can\'t find any files in the provided path %s'
+file_to_save_path = 'summary_results.csv'
 
 
 def director_handler(path, warning_str=None, exception_str=None):
@@ -85,6 +87,28 @@ def concatenate_to_df_from_np(np_list):
     return pd.concat([pd.DataFrame(np_i) for np_i in np_list], axis=0)
 
 
+def write_results_csv(file_name, headers_name, row_data, operation='a'):
+    if len(headers_name) != len(row_data):
+        raise ValueError('Row data length must match the file header length')
+    _write_data = list()
+
+    if not os.path.exists(file_name):
+        operation = 'w'
+        _write_data.append(headers_name)
+
+    _write_data.append(row_data)
+
+    with open(file_name, operation) as f:
+        writer = csv.writer(f)
+        _ = [writer.writerow(i) for i in _write_data]
+
+
+def save_to_file(path, dict_saver):
+    header = list(dict_saver.keys())
+    values = list(dict_saver.values())
+    write_results_csv(path, header, values)
+
+
 def get_metric_dict(y_train, y_pred_train, y_test, y_pred_test):
     mean_squared_train = mean_squared_error(y_train, y_pred_train, )
     mean_squared_test = mean_squared_error(y_test, y_pred_test, )
@@ -138,11 +162,11 @@ def get_normal_data(df, target_name):
     return train_test_split_normal(X, y, test_size=.2, random_state=42)
 
 
-def task(df, is_dask):
+def task(df, ram_to_use, is_dask):
     client = None
     if is_dask:
         client = Client(threads_per_worker=10,
-                        n_workers=10, memory_limit='2GB')
+                        n_workers=10, memory_limit=''.join([str(ram_to_use), 'GB']))
 
     models = [Ridge(random_state=42),
               GradientBoostingRegressor(random_state=42), ][:1 if is_dask else 2]
@@ -159,10 +183,19 @@ def task(df, is_dask):
         model_name = type(model).__name__
         train_error, test_error = results[model_name]['metric']['mean_squared_error']
         t_end = time.time()
+        time_took = round(t_end - t_start, 3)
+
+        dict_saver = {}
+        dict_saver.update({'model_name': model_name + ('_dask' if is_dask else '')})
+        dict_saver.update({'train_error(MSE)': train_error})
+        dict_saver.update({'test_error(MSE)': test_error})
+        dict_saver.update({'time': time_took})
+        save_to_file(file_to_save_path, dict_saver)
 
         print(model_name,
               ':\t took ->',
-              round(t_end - t_start, 3),
+              time_took
+              ,
               '\t with error (train, test)',
               (train_error, test_error))
 
@@ -174,6 +207,7 @@ def task(df, is_dask):
         t_start = time.time()
         bst = dask_xgboost.train(client, params, X_train, y_train, num_boost_round=10)
         t_end = time.time()
+        time_took = round(t_end - t_start, 3)
 
         y_train_hat = dask_xgboost.predict(client, bst, X_train).persist()
         y_test_hat = dask_xgboost.predict(client, bst, X_test).persist()
@@ -184,8 +218,15 @@ def task(df, is_dask):
         train_error = mean_squared_error(y_train, y_train_hat)
         test_error = mean_squared_error(y_test, y_test_hat)
 
+        dict_saver = {}
+        dict_saver.update({'model_name': 'Dask XGBoost' + '_dask'})
+        dict_saver.update({'train_error(MSE)': train_error})
+        dict_saver.update({'test_error(MSE)': test_error})
+        dict_saver.update({'time': time_took})
+        save_to_file(file_to_save_path, dict_saver)
+
         print('Dask XGBoost',
               ':\t took ->',
-              round(t_end - t_start, 3),
+              time_took,
               '\t with error (train, test)',
               (train_error, test_error))

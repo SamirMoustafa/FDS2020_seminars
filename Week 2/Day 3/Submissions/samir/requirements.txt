@@ -5,3 +5,5 @@ dask-glm
 dask-ml
 dask-xgboost
 joblib
+dask[complete]
+dask[xgboost]
